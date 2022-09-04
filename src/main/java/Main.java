@@ -23,6 +23,11 @@ import java.lang.management.RuntimeMXBean;
 import java.util.*;
 import java.util.List;
 
+/**
+ * A Discord Bot that works with MongoMod.
+ * @author William Li
+ * @version 1.0.1
+ */
 public class Main extends ListenerAdapter {
 	private static String auth, defaultServer;
 	public static MongoManager manager;
@@ -168,7 +173,7 @@ public class Main extends ListenerAdapter {
 			}
 			if(players.isEmpty()) {
 				eb.appendDescription("No online players :(");
-				eb.setImage(""); //image here
+				eb.setImage("");
 			}
 			event.getHook().sendMessageEmbeds(eb.build()).queue();
 		}
@@ -192,7 +197,7 @@ public class Main extends ListenerAdapter {
 			if(manager.getCollection(serverName, "startlogs").find().sort(new Document("_id", -1)).first().getString("type").equalsIgnoreCase("start")){
 				EmbedBuilder eb = new EmbedBuilder().setTitle("Already Started")
 						.setDescription("The server is already on. Connect to " + server.getIp() + " to play on the server. ")
-						.setImage(""); //image here
+						.setImage("");
 				event.getHook().sendMessageEmbeds(eb.build()).queue();
 				return;
 			}
@@ -208,7 +213,7 @@ public class Main extends ListenerAdapter {
 				return;
 			}
 			EmbedBuilder eb = new EmbedBuilder().setTitle("Started Server").appendDescription("Connect to `" + server.getIp() + "` to play on the server. ")
-					.setImage(""); //image here
+					.setImage("");
 			event.getHook().sendMessageEmbeds(eb.build()).queue();
 		}
 		else if(event.getName().equals("stop")){
