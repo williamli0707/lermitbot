@@ -1,6 +1,0 @@
-OTg4OTExNzAwMDYzNDQwOTY3.GuWlst.TtdPk4g3ELyZDFhYWhsKSEhJSf70FRsQpooe50
-mongodb+srv://mongomod:FzT7L7KlDwGfSuMn@cluster0.hix0z.mongodb.net/?retryWrites=true&w=majority
-738885735595376640
-OTk1ODI2NDExMzQyNDA1NjYy.GTQJLK.QCq3Z9cJovuImBabbZc-xd6VPmVohdqXVn9dXI
-
-testing first one
