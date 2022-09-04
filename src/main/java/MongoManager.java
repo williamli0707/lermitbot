@@ -14,7 +14,7 @@ public class MongoManager {
 	public MongoManager(String connectionString) {
     	this.string = new ConnectionString(connectionString);
         client = MongoClients.create(string);
-        map = new HashMap<String, MongoCollection[]>();
+        map = new HashMap();
         for(String i: client.listDatabaseNames()) if(!i.equalsIgnoreCase("mc")) addCollection(i);
     }
     public void addCollection(String id){
@@ -22,7 +22,6 @@ public class MongoManager {
         MongoCollection joinlogs = db.getCollection("joinlogs"),
                 onlinelogs = db.getCollection("onlinelogs"),
                 startlogs = db.getCollection("startlogs");
-        // Join logs, Online logs, Start logs
         map.put(id, new MongoCollection[]{joinlogs, onlinelogs, startlogs});
     }
 
