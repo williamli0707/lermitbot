@@ -15,34 +15,13 @@ import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import org.bson.Document;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.LoggerFactory;
-
 import javax.security.auth.login.LoginException;
-
 import static com.mongodb.client.model.Filters.eq;
-
 import java.io.*;
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
 import java.util.*;
 import java.util.List;
-
-
-/*
-guild.updateCommands().addCommands(
-        Commands.slash("echo", "Repeats messages back to you.")
-            .addOption(OptionType.STRING, "message", "The message to repeat.")
-            .addOption(OptionType.INTEGER, "times", "The number of times to repeat the message.")
-            .addOption(OptionType.BOOLEAN, "ephemeral", "Whether or not the message should be sent as an ephemeral message."),
-        Commands.slash("animal", "Finds a random animal")
-             .addOptions(
-                 new OptionData(OptionType.STRING, "type", "The type of animal to find")
-                     .addChoice("Bird", "bird")
-                     .addChoice("Big Cat", "bigcat")
-                     .addChoice("Canine", "canine")
-                     .addChoice("Fish", "fish")
-             )
-).queue();
-*/
 
 public class Main extends ListenerAdapter {
 	private static String auth, defaultServer;
@@ -189,7 +168,7 @@ public class Main extends ListenerAdapter {
 			}
 			if(players.isEmpty()) {
 				eb.appendDescription("No online players :(");
-				eb.setImage("https://media.discordapp.net/attachments/780590148517756971/995826061092855918/unknown.png");
+				eb.setImage(""); //image here
 			}
 			event.getHook().sendMessageEmbeds(eb.build()).queue();
 		}
@@ -213,7 +192,7 @@ public class Main extends ListenerAdapter {
 			if(manager.getCollection(serverName, "startlogs").find().sort(new Document("_id", -1)).first().getString("type").equalsIgnoreCase("start")){
 				EmbedBuilder eb = new EmbedBuilder().setTitle("Already Started")
 						.setDescription("The server is already on. Connect to " + server.getIp() + " to play on the server. ")
-						.setImage("https://media.discordapp.net/attachments/780590148517756971/995826028842844222/unknown.png");
+						.setImage(""); //image here
 				event.getHook().sendMessageEmbeds(eb.build()).queue();
 				return;
 			}
@@ -229,7 +208,7 @@ public class Main extends ListenerAdapter {
 				return;
 			}
 			EmbedBuilder eb = new EmbedBuilder().setTitle("Started Server").appendDescription("Connect to `" + server.getIp() + "` to play on the server. ")
-					.setImage("https://media.discordapp.net/attachments/780590148517756971/995826028842844222/unknown.png");
+					.setImage(""); //image here
 			event.getHook().sendMessageEmbeds(eb.build()).queue();
 		}
 		else if(event.getName().equals("stop")){
