@@ -8,21 +8,25 @@ import org.bson.Document;
 import java.util.HashMap;
 
 public class MongoManager {
-    private HashMap<String, MongoCollection[]> map;
-    private ConnectionString string;
-    private MongoClient client;
+    private final HashMap<String, MongoCollection<Document>[]> map;
+    private final MongoClient client;
 	public MongoManager(String connectionString) {
-    	this.string = new ConnectionString(connectionString);
+        ConnectionString string = new ConnectionString(connectionString);
         client = MongoClients.create(string);
-        map = new HashMap();
+        map = new HashMap<>();
         for(String i: client.listDatabaseNames()) if(!i.equalsIgnoreCase("mc")) addCollection(i);
     }
     public void addCollection(String id){
         MongoDatabase db = client.getDatabase(id);
-        MongoCollection joinlogs = db.getCollection("joinlogs"),
+        MongoCollection<Document> joinlogs = db.getCollection("joinlogs"),
                 onlinelogs = db.getCollection("onlinelogs"),
                 startlogs = db.getCollection("startlogs");
         map.put(id, new MongoCollection[]{joinlogs, onlinelogs, startlogs});
+    }
+
+    public void removeCollection(String id) {
+        map.remove(id);
+        client.getDatabase(id).drop();
     }
 
     public MongoCollection<Document> getCollection(String id, String log){
@@ -39,4 +43,6 @@ public class MongoManager {
         db.createCollection("startlogs");
         addCollection(id);
     }
+
+//    public void updateCollection(String id, Document)
 }

@@ -6,7 +6,7 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Activity;
-import net.dv8tion.jda.api.events.ReadyEvent;
+import net.dv8tion.jda.api.events.session.ReadyEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
@@ -26,12 +26,14 @@ import java.util.List;
 /**
  * A Discord Bot that works with MongoMod.
  * @author William Li
- * @version 1.0.1
+ * @version 1.5.0
  */
 public class Main extends ListenerAdapter {
-	private static String auth, defaultServer;
+	private static String defaultServer;
+	private static List<String> auth;
 	public static MongoManager manager;
 	public static HashMap<String, Server> servers;
+	public static HashMap<String, String> aliases;
 	final static Class<? extends List> ListClass = ArrayList.class;
 
 	public static MongoClient client;
@@ -50,28 +52,42 @@ public class Main extends ListenerAdapter {
 		System.err.println("jvm version: " + System.getProperty("java.version"));
 		String mongoConnectionString = in.nextLine();
 		manager = new MongoManager(mongoConnectionString);
-		auth = in.nextLine();
+		auth = Arrays.asList(in.nextLine().split(" "));
 
 		client = MongoClients.create(mongoConnectionString);
 		serverDatabase = client.getDatabase("mc");
 		serverList = serverDatabase.getCollection("servers");
-		servers = new HashMap();
+		servers = new HashMap<>();
+		aliases = new HashMap<>();
 		defaultServer = in.nextLine();
-		for(Document i: serverList.find()) servers.put(i.getString("name"), Server.fromDocument(i));
-
-		Timer timer = new Timer();
-		timer.schedule(new TimerTask() {
-			@Override
-			public void run() {
-				Document myDoc = manager.getCollection(defaultServer, "startlogs").find().sort(new Document("_id", -1)).first();
-				if(myDoc.getString("type").equalsIgnoreCase("start")) {
-					jda.getPresence().setActivity(Activity.playing(servers.get(defaultServer).getOfficialname() + " - ONLINE"));
-				}
-				else{
-					jda.getPresence().setActivity(Activity.playing(servers.get(defaultServer).getOfficialname() + " - OFFLINE"));
-				}
+		for(Document i: serverList.find()) {
+			String name = i.getString("name");
+			servers.put(name, Server.fromDocument(i));
+			if(servers.get(name).getAliases() == null) {
+				ArrayList<String> newAliases = new ArrayList<>();
+				newAliases.add(name);
+				servers.get(name).setAliases(newAliases);
 			}
-		}, 0, 5000);
+			for(String alias: servers.get(i.getString("name")).getAliases()) {
+				aliases.put(alias, i.getString("name"));
+			}
+		}
+		if(servers.containsKey(defaultServer)) {
+			Timer timer = new Timer();
+			timer.schedule(new TimerTask() {
+				@Override
+				public void run() {
+					Document myDoc = manager.getCollection(defaultServer, "startlogs").find().sort(new Document("_id", -1)).first();
+					if(myDoc == null) return;
+					if (myDoc.getString("type").equalsIgnoreCase("start")) {
+						jda.getPresence().setActivity(Activity.playing(servers.get(defaultServer).getOfficialname() + " - ONLINE"));
+					} else {
+						jda.getPresence().setActivity(Activity.playing(servers.get(defaultServer).getOfficialname() + " - OFFLINE"));
+					}
+				}
+			}, 0, 5000);
+		}
+//		System.err.println(servers);
 	}
 	private Main(){
 //		MongoClient mongoClient = MongoClients.create(connectionString);
@@ -80,8 +96,10 @@ public class Main extends ListenerAdapter {
 //		onlinelogs = lermit4.getCollection("onlinelogs");
 //		startlogs = lermit4.getCollection("startlogs");
 
+		LoggerFactory.getLogger("org.mongodb");
 		LoggerContext loggerContext = (LoggerContext) LoggerFactory.getILoggerFactory();
 		for(Logger logger : loggerContext.getLoggerList()) {
+//			System.err.println(logger.getName());
 			if(logger.getName().startsWith("com.mongodb") || logger.getName().startsWith("org.mongodb") || logger.getName().startsWith("net.dv8tion")) {
 				logger.setLevel(Level.WARN);
 			}
@@ -90,10 +108,14 @@ public class Main extends ListenerAdapter {
 	@Override
 	public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
 		event.deferReply().queue();
-		String serverName;
+		String serverName, serverNameF;
 		OptionMapping om = event.getOption("server");
-		if(om != null) serverName = om.getAsString();
+		if(om != null) {
+			serverName = om.getAsString();
+			serverName = servers.get(aliases.get(serverName)).getName();
+		}
 		else serverName = defaultServer;
+		serverNameF = servers.get(serverName).getOfficialname();
 
 		if(!servers.containsKey(serverName)){
 			event.getHook().sendMessage("This server does not exist. Use `servers` to see a list of available servers. ").queue();
@@ -118,26 +140,28 @@ public class Main extends ListenerAdapter {
 		}
 		else if(event.getName().equals("joinlogs")){
 			MongoCursor<Document> recent = manager.getCollection(serverName, "joinlogs").find().sort(new Document("_id", -1)).iterator();
-			EmbedBuilder eb = new EmbedBuilder().setTitle("Recent Player Join/Leave Activity");
+			EmbedBuilder eb = new EmbedBuilder().setTitle("Recent Player Join/Leave Activity for server " + serverNameF);
 			for(int i = 0;i < 5;i++){
 				Document cur = recent.next();
 				eb.addField(new Date(cur.getLong("date")).toString(), cur.getString("playername") + "\n" + cur.getString("type"), false);
 				if(!recent.hasNext()) break;
 			}
+			eb.setFooter("Server id " + serverName);
 			event.getHook().sendMessageEmbeds(eb.build()).queue();
 			recent.close();
 		}
 		else if(event.getName().equals("ping")){
-			event.getHook().sendMessage(event.getJDA().getGatewayPing() + " ms").queue();
+			event.getHook().sendMessage(event.getJDA().getGatewayPing() + " ms ping with Discord").queue();
 		}
 		else if(event.getName().equals("startlogs")){
 			MongoCursor<Document> recent = manager.getCollection(serverName, "startlogs").find().sort(new Document("_id", -1)).iterator();
-			EmbedBuilder eb = new EmbedBuilder().setTitle("Recent Server Activity");
+			EmbedBuilder eb = new EmbedBuilder().setTitle("Recent Server Activity for server " + serverNameF);
 			for(int i = 0;i < 5;i++){
 				Document cur = recent.next();
 				eb.addField(new Date(cur.getLong("date")).toString(), cur.getString("type"), false);
 				if(!recent.hasNext()) break;
 			}
+			eb.setFooter("Server id " + serverName);
 			event.getHook().sendMessageEmbeds(eb.build()).queue();
 			recent.close();
 		}
@@ -146,13 +170,15 @@ public class Main extends ListenerAdapter {
 			if(cur.getString("type").equalsIgnoreCase("start")){
 				long uptime = System.currentTimeMillis() - cur.getLong("date");
 				long ms = uptime % 1000, seconds = uptime/1000, minutes = seconds/60, hours = minutes/60, days = hours/24;
-				EmbedBuilder eb = new EmbedBuilder().setTitle("Uptime")
+				EmbedBuilder eb = new EmbedBuilder().setTitle("Uptime for server " + serverNameF)
 						.setDescription(days + " days, " + hours % 24 + " hours, " + minutes % 60 + " minutes, " + seconds % 60 + " seconds, " + ms + " milliseconds");
+				eb.setFooter("Server id " + serverName);
 				event.getHook().sendMessageEmbeds(eb.build()).queue();
 			}
 			else{
-				EmbedBuilder eb = new EmbedBuilder().setTitle("Uptime")
+				EmbedBuilder eb = new EmbedBuilder().setTitle("Uptime for server " + serverNameF)
 						.setDescription("The server is not on right now. Use `*start` to start the server. ");
+				eb.setFooter("Server id " + serverName);
 				event.getHook().sendMessageEmbeds(eb.build()).queue();
 			}
 		}
@@ -160,34 +186,61 @@ public class Main extends ListenerAdapter {
 			RuntimeMXBean rb = ManagementFactory.getRuntimeMXBean();
 			long uptimems = rb.getUptime();
 			long ms = uptimems % 1000, seconds = uptimems/1000, minutes = seconds/60, hours = minutes/60, days = hours/24;
-			EmbedBuilder uptime = new EmbedBuilder().setTitle("Uptime")
+			EmbedBuilder uptime = new EmbedBuilder().setTitle("Uptime for server " + serverNameF)
 					.setDescription(days + " days, " + hours % 24 + " hours, " + minutes % 60 + " minutes, " + seconds % 60 + " seconds, " + ms + " milliseconds");
+			uptime.setFooter("Server id " + serverName);
 			event.getHook().sendMessageEmbeds(uptime.build()).queue();
 		}
 		else if (event.getName().equals("online")){
-			EmbedBuilder eb = new EmbedBuilder().setTitle("Current Online Players: ");
+			EmbedBuilder eb = new EmbedBuilder().setTitle("Current Online Players for server " + serverNameF + ": ");
 			Document get = manager.getCollection(serverName, "onlinelogs").find(eq("_id", 1)).first();
 			List<Document> players = get.get("players", ListClass);
-			for(int i = 0;i < players.size();i++){
-				eb.appendDescription(" ◈ " + players.get(i) + "\n");
-			}
+			for (Document player : players) eb.appendDescription(" ◈ " + player + "\n");
 			if(players.isEmpty()) {
 				eb.appendDescription("No online players :(");
-				eb.setImage("https://media.discordapp.net/attachments/780590148517756971/995826061092855918/unknown.png");
 			}
+			eb.setFooter("Server id " + serverName);
 			event.getHook().sendMessageEmbeds(eb.build()).queue();
 		}
 		else if(event.getName().equals("addserver")){
 			String name = event.getOption("id").getAsString(), bigname = event.getOption("name").getAsString(), ip = event.getOption("ip").getAsString();
-			if(event.getMember().getId().equals(auth)){
-				Server serverToInsert = new Server(name, bigname, ip);
+			OptionMapping rc = event.getOption("runcommand"), sc = event.getOption("stopcommand");
+			String runcommand = null, stopcommand = null;
+			if(rc != null) runcommand = rc.getAsString();
+			if(sc != null) stopcommand = sc.getAsString();
+			if(auth.contains(event.getMember().getId())){
+		  		if(servers.containsKey(name)) {
+					  event.getHook().sendMessageEmbeds(new EmbedBuilder().setTitle("Server already exists").appendDescription("The server with name " + name + " already exists. If you want to override this server, use the `removeserver` command. ").build()).queue();
+					  return;
+				}
+				Server serverToInsert = new Server(name, bigname, ip, runcommand, stopcommand);
 				serverList.insertOne(serverToInsert.toDocument()); //adds to the "mc" collection which stores server info
 				servers.put(name, serverToInsert);//add to hashmap
 				manager.newCollection(name); //adds to the main database as a new server with logs
-				event.getHook().sendMessageEmbeds(new EmbedBuilder().setTitle("Added a new Server").appendDescription("Added a new server with name " + name + ", alternate name " + bigname + ", and IP " + ip + "\n").appendDescription("Server raw Document data: \n" + serverToInsert.toDocument().toString()).build()).queue();
+				EmbedBuilder eb = new EmbedBuilder().setTitle("Added a new Server").appendDescription("Added a new server with name " + name + ", alternate name " + bigname + ", and IP " + ip + "\n").appendDescription("Server raw Document data: \n" + serverToInsert.toDocument().toString());
+				if(!servers.containsKey(defaultServer)){
+					eb.appendDescription("Your default server is not set. If you want to set this server as the default, change the Config.txt file and put the id of this server into the specified line. You'll have to restart the bot for the status to display the default server's status. ");
+				}
+				event.getHook().sendMessageEmbeds(eb.build()).queue();
 			}
 			else{
-				event.getHook().sendMessage("Authorization Required").queue();
+				event.getHook().sendMessage("Authorization Required - only users specified in the Config.txt file can add or remove a server. ").queue();
+			}
+		}
+		else if(event.getName().equals("removeserver")) {
+			String name = event.getOption("id").getAsString();
+			if(auth.contains(event.getMember().getId())) {
+				if(name.equals(defaultServer)){
+					event.getHook().sendMessageEmbeds(new EmbedBuilder().setTitle("Cannot Remove").appendDescription("You cannot remove the default server. To fix this, change the default server in the Config.txt file. ").build()).queue();
+					return;
+				}
+				serverList.findOneAndDelete(eq("name", name));
+				servers.remove(name);
+				manager.removeCollection(name);
+				event.getHook().sendMessageEmbeds(new EmbedBuilder().setTitle("Removed a server").appendDescription("Removed a server with name " + name + " from the bot. ").build()).queue();
+			}
+			else {
+				event.getHook().sendMessage("Authorization Required - only users specified in the Config.txt file can add or remove a server. ").queue();
 			}
 		}
 		else if(event.getName().equals("start")){
@@ -198,24 +251,23 @@ public class Main extends ListenerAdapter {
 			Server server = servers.get(serverName);
 			if(manager.getCollection(serverName, "startlogs").find().sort(new Document("_id", -1)).first().getString("type").equalsIgnoreCase("start")){
 				EmbedBuilder eb = new EmbedBuilder().setTitle("Already Started")
-						.setDescription("The server is already on. Connect to " + server.getIp() + " to play on the server. ")
-						.setImage("https://media.discordapp.net/attachments/780590148517756971/995826028842844222/unknown.png");
+						.setDescription("The server is already on. Connect to " + server.getIp() + " to play on the server. ");
+				eb.setFooter("Server id " + serverName);
 				event.getHook().sendMessageEmbeds(eb.build()).queue();
 				return;
 			}
 			event.getHook().sendMessage("Starting...").queue();
 			try {
 				System.err.println("start");
-				ProcessBuilder pb = new ProcessBuilder("ssh", "-tt", "-i", "~/.ssh/ssh-key.key", "opc@" + server.getIp(), "tmux", "send-keys", "'~/" + server.getName() + "/minecraft/run.sh'", "Enter", "C-m").inheritIO();
-				//ProcessBuilder pb = new ProcessBuilder("ssh", "-tt", "-i", "~/.ssh/ssh-key-2022-06-18.key", "opc@138.2.230.47", "tmux", "send-keys", "'~/pararcana/minecraft/run.sh'", "Enter", "C-m");
+				ProcessBuilder pb = new ProcessBuilder(servers.get(serverName).getRuncommand().split(" ")).inheritIO();
 				Process p = pb.start();
 			} catch (IOException e) {
 				event.getHook().sendMessage("IOException").queue();
 				e.printStackTrace();
 				return;
 			}
-			EmbedBuilder eb = new EmbedBuilder().setTitle("Started Server").appendDescription("Connect to `" + server.getIp() + "` to play on the server. ")
-					.setImage("https://media.discordapp.net/attachments/780590148517756971/995826028842844222/unknown.png");
+			EmbedBuilder eb = new EmbedBuilder().setTitle("Started Server").appendDescription("Connect to `" + server.getIp() + "` to play on the server. ");
+			eb.setFooter("Server id " + serverName);
 			event.getHook().sendMessageEmbeds(eb.build()).queue();
 		}
 		else if(event.getName().equals("stop")){
@@ -227,7 +279,7 @@ public class Main extends ListenerAdapter {
 			event.getHook().sendMessage("Stopping...").queue();
 			try {
 				System.err.println("stop");
-				ProcessBuilder pb = new ProcessBuilder("ssh", "-tt", "-i", "~/.ssh/ssh-key.key", "opc@" + server.getIp(), "tmux", "send-keys", "/stop", "Enter", "C-m").inheritIO();
+				ProcessBuilder pb = new ProcessBuilder(servers.get(serverName).getStopcommand().split(" ")).inheritIO();
 				Process p = pb.start();
 			} catch (IOException e) {
 				event.getHook().sendMessage("IOException").queue();
@@ -235,14 +287,56 @@ public class Main extends ListenerAdapter {
 				return;
 			}
 			EmbedBuilder eb = new EmbedBuilder().setTitle("Stopped Server").appendDescription("The server is stopped.");
+			eb.setFooter("Server id " + serverName);
 			event.getHook().sendMessageEmbeds(eb.build()).queue();
 		}
 		else if(event.getName().equals("servers")){
-			StringBuilder serverNames = new StringBuilder("Use the names in the second column for commands. ");
-			for(Server server : servers.values()){
-				serverNames.append("\n ◈ ").append(server.getOfficialname()).append("\t").append(server.getName()).append("\n");
+			StringBuilder serverNames = new StringBuilder("Use the names in the second column for commands. \n");
+			for(Map.Entry<String, Server> entry : servers.entrySet()){
+				serverNames.append(" ◈  ").append(entry.getValue().getOfficialname()).append("\t").append("`").append(entry.getKey()).append("`").append("\n");
+				if(entry.getValue().getAliases().size() > 1) {
+					serverNames.append("       You can also use commands for this server with: ");
+					for(String alias: entry.getValue().getAliases()) if(!alias.equals(entry.getKey())) serverNames.append("`").append(alias).append("`").append(" ");
+					serverNames.append("\n");
+				}
 			}
 			event.getHook().sendMessageEmbeds(new EmbedBuilder().setTitle("Servers").appendDescription(serverNames.toString()).build()).queue();
+		}
+		else if(event.getName().equals("addalias")){
+			if(auth.contains(event.getMember().getId())) {
+				if(!servers.containsKey(serverName)) {
+					event.getHook().sendMessageEmbeds(new EmbedBuilder().setTitle("Server Not Found").appendDescription("The server wasn't found. Try running `servers` to see the list of servers. ").build()).queue();
+					return;
+				}
+				String alias = event.getOption("alias").getAsString();
+				if(aliases.containsKey(alias)){
+					event.getHook().sendMessageEmbeds(new EmbedBuilder().setTitle("Alias already exists").appendDescription("This alias already exists. Remove it to use it again. ").build()).queue();
+					return;
+				}
+				servers.get(serverName).aliases.add(alias);
+				aliases.put(alias, serverName);
+				serverList.findOneAndReplace(eq("name", serverName), servers.get(serverName).toDocument());
+				event.getHook().sendMessageEmbeds(new EmbedBuilder().setTitle("Added new alias " + alias + " for server " + serverNameF).build()).queue();
+			}
+			else {
+				event.getHook().sendMessage("Authorization Required - only users specified in the Config.txt file can perform this operation. ").queue();
+			}
+		}
+		else if(event.getName().equals("removealias")){
+			if(auth.contains(event.getMember().getId())) {
+				if(!servers.containsKey(serverName)) {
+					event.getHook().sendMessageEmbeds(new EmbedBuilder().setTitle("Server Not Found").appendDescription("The server wasn't found. Try running `servers` to see the list of servers. ").build()).queue();
+					return;
+				}
+				String alias = event.getOption("alias").getAsString();
+				servers.get(serverName).aliases.remove(alias);
+				aliases.remove(alias);
+				serverList.findOneAndReplace(eq("name", serverName), servers.get(serverName).toDocument());
+				event.getHook().sendMessageEmbeds(new EmbedBuilder().setTitle("Removed alias " + alias + " for server " + serverNameF).build()).queue();
+			}
+			else {
+				event.getHook().sendMessage("Authorization Required - only users specified in the Config.txt file can perform this operation. ").queue();
+			}
 		}
 		super.onSlashCommandInteraction(event);
 	}
@@ -252,20 +346,20 @@ public class Main extends ListenerAdapter {
 				Commands.slash("botuptime", "See the uptime of the bot. "),
 
 				Commands.slash("joinlogs", "See the past 5 player join/leave logs. ")
-						.addOption(OptionType.STRING, "server", "Server to show. ", true),
+						.addOption(OptionType.STRING, "server", "Server to show. ", false),
 
 				Commands.slash("startlogs", "See the past 5 server start/stop logs. ")
-						.addOption(OptionType.STRING, "server", "Server to show. ", true),
+						.addOption(OptionType.STRING, "server", "Server to show. ", false),
 
 				Commands.slash("online", "See a list of the online players on the server. ")
-						.addOption(OptionType.STRING, "server", "Server to show. ", true),
+						.addOption(OptionType.STRING, "server", "Server to show. ", false),
 
 				Commands.slash("uptime", "See the uptime of the server. ")
-						.addOption(OptionType.STRING, "server", "Server to show. ", true),
+						.addOption(OptionType.STRING, "server", "Server to show. ", false),
 
 				Commands.slash("servers", "See the current list of available servers. "),
 
-				Commands.slash("help", "Show this help message."),
+				Commands.slash("help", "Show the help message."),
 
 				Commands.slash("start", "Start the specified server. ")
 						.addOption(OptionType.STRING, "server", "Server to start. ", true),
@@ -279,6 +373,19 @@ public class Main extends ListenerAdapter {
 						.addOption(OptionType.STRING, "id", "ID of server to add. (ex. lermit4)", true)
 						.addOption(OptionType.STRING, "name", "Name of server to add. (ex. Lermit 4)", true)
 						.addOption(OptionType.STRING, "ip", "IP of server to add. (ex. 192.168.0.0)", true)
+						.addOption(OptionType.STRING, "runcommand", "How to start the server. Look at the mod page for more information. ", false)
+						.addOption(OptionType.STRING, "stopcommand", "How to stop the server. Look at the mod page for more information. ", false),
+
+				Commands.slash("removeserver", "Remove a server from the list of available servers. ")
+					.addOption(OptionType.STRING, "id", "ID of server to remove. (ex. lermit4)", true),
+
+				Commands.slash("addalias", "Add an alias for a server for convenience. ")
+						.addOption(OptionType.STRING, "server", "Server to add an alias for. (ex. lermit4)", true)
+						.addOption(OptionType.STRING, "alias", "Alias of server to add. (ex. l4)", true),
+
+				Commands.slash("removealias", "Remove an alias for a server. ")
+						.addOption(OptionType.STRING, "server", "Server to remove an alias for. (ex. lermit4)", true)
+						.addOption(OptionType.STRING, "alias", "Alias of server to remove. (ex. l4)", true)
 		).queue();
 	}
 }
