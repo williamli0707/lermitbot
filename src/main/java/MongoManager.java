@@ -1,4 +1,5 @@
 import com.mongodb.ConnectionString;
+import com.mongodb.MongoCommandException;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
@@ -36,11 +37,11 @@ public class MongoManager {
         return null;
     }
 
-    public void newCollection(String id){
+    public void newCollection(String id) throws MongoCommandException {
         MongoDatabase db = client.getDatabase(id);
-        db.createCollection("joinlogs");
-        db.createCollection("onlinelogs");
-        db.createCollection("startlogs");
+        try {db.createCollection("joinlogs");} catch (MongoCommandException ignored) {}
+        try {db.createCollection("onlinelogs");} catch (MongoCommandException ignored) {}
+        try {db.createCollection("startlogs");} catch (MongoCommandException ignored) {}
         addCollection(id);
     }
 

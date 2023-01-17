@@ -39,6 +39,8 @@ public class Main extends ListenerAdapter {
 	public static MongoClient client;
 	public static MongoDatabase serverDatabase;
 	public static MongoCollection<Document> serverList;
+	public static final String TEXT_CYAN = "\u001B[36m";
+	public static final String TEXT_RESET = "\u001B[0m";
 
 	public static void main(String[] args) throws IOException, LoginException {
 		Scanner in = new Scanner(new File("Config.txt"));
@@ -48,8 +50,8 @@ public class Main extends ListenerAdapter {
 		JDA jda = JDABuilder.createDefault(token)
 				.build();
 		jda.addEventListener(new Main());
-		System.err.println("Logged in as " + jda.getSelfUser().getName() + "#" + jda.getSelfUser().getDiscriminator());
-		System.err.println("jvm version: " + System.getProperty("java.version"));
+		System.err.println(TEXT_CYAN + "Logged in as " + jda.getSelfUser().getName() + "#" + jda.getSelfUser().getDiscriminator() + TEXT_RESET);
+		System.err.println(TEXT_CYAN + "jvm version: " + System.getProperty("java.version") + TEXT_RESET);
 		String mongoConnectionString = in.nextLine();
 		manager = new MongoManager(mongoConnectionString);
 		auth = Arrays.asList(in.nextLine().split(" "));
@@ -105,6 +107,18 @@ public class Main extends ListenerAdapter {
 			}
 		}
 	}
+
+	public boolean isOnline(String id) {
+		try {
+			Document cur = manager.getCollection(id, "startlogs").find().sort(new Document("_id", -1)).first();
+			if (cur.getString("type").equalsIgnoreCase("start")) return true;
+			else return false;
+		}
+		catch (NullPointerException e) {
+			return false;
+		}
+	}
+
 	@Override
 	public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
 		event.deferReply().queue();
@@ -112,6 +126,10 @@ public class Main extends ListenerAdapter {
 		OptionMapping om = event.getOption("server");
 		if(om != null) {
 			serverName = om.getAsString();
+			if(!aliases.containsKey(serverName)){
+				event.getHook().sendMessage("This server does not exist. Use `servers` to see a list of available servers. ").queue();
+				return;
+			}
 			serverName = servers.get(aliases.get(serverName)).getName();
 		}
 		else serverName = defaultServer;
@@ -119,6 +137,7 @@ public class Main extends ListenerAdapter {
 
 		if(!servers.containsKey(serverName)){
 			event.getHook().sendMessage("This server does not exist. Use `servers` to see a list of available servers. ").queue();
+			return;
 		}
 
 		if(event.getName().equals("help")){
@@ -167,7 +186,7 @@ public class Main extends ListenerAdapter {
 		}
 		else if(event.getName().equals("uptime")){
 			Document cur = manager.getCollection(serverName, "startlogs").find().sort(new Document("_id", -1)).first();
-			if(cur.getString("type").equalsIgnoreCase("start")){
+			if(isOnline(serverName)){
 				long uptime = System.currentTimeMillis() - cur.getLong("date");
 				long ms = uptime % 1000, seconds = uptime/1000, minutes = seconds/60, hours = minutes/60, days = hours/24;
 				EmbedBuilder eb = new EmbedBuilder().setTitle("Uptime for server " + serverNameF)
@@ -192,15 +211,25 @@ public class Main extends ListenerAdapter {
 			event.getHook().sendMessageEmbeds(uptime.build()).queue();
 		}
 		else if (event.getName().equals("online")){
-			EmbedBuilder eb = new EmbedBuilder().setTitle("Current Online Players for server " + serverNameF + ": ");
-			Document get = manager.getCollection(serverName, "onlinelogs").find(eq("_id", 1)).first();
-			List<Document> players = get.get("players", ListClass);
-			for (Document player : players) eb.appendDescription(" ◈ " + player + "\n");
-			if(players.isEmpty()) {
-				eb.appendDescription("No online players :(");
+			if(isOnline(serverName)) {
+				EmbedBuilder eb = new EmbedBuilder().setTitle("Current Online Players for server " + serverNameF + ": ");
+//			System.out.println(manager.getCollection(serverName, "onlinelogs").find(eq("_id", 1)).first());
+				Document get = manager.getCollection(serverName, "onlinelogs").find(eq("_id", 1)).first();
+				List<Object> players = get.get("players", ListClass);
+				for (Object player : players)
+					eb.appendDescription(" ◈ " + player.toString() + "\n");
+				if (players.isEmpty()) {
+					eb.appendDescription("No online players :(");
+				}
+				eb.setFooter("Server id " + serverName);
+				event.getHook().sendMessageEmbeds(eb.build()).queue();
 			}
-			eb.setFooter("Server id " + serverName);
-			event.getHook().sendMessageEmbeds(eb.build()).queue();
+			else{
+				EmbedBuilder eb = new EmbedBuilder().setTitle("Uptime for server " + serverNameF)
+						.setDescription("The server is not on right now. Use `*start` to start the server. ");
+				eb.setFooter("Server id " + serverName);
+				event.getHook().sendMessageEmbeds(eb.build()).queue();
+			}
 		}
 		else if(event.getName().equals("addserver")){
 			String name = event.getOption("id").getAsString(), bigname = event.getOption("name").getAsString(), ip = event.getOption("ip").getAsString();
@@ -249,7 +278,7 @@ public class Main extends ListenerAdapter {
 				return;
 			}
 			Server server = servers.get(serverName);
-			if(manager.getCollection(serverName, "startlogs").find().sort(new Document("_id", -1)).first().getString("type").equalsIgnoreCase("start")){
+			if(isOnline(serverName)){
 				EmbedBuilder eb = new EmbedBuilder().setTitle("Already Started")
 						.setDescription("The server is already on. Connect to " + server.getIp() + " to play on the server. ");
 				eb.setFooter("Server id " + serverName);
@@ -258,7 +287,7 @@ public class Main extends ListenerAdapter {
 			}
 			event.getHook().sendMessage("Starting...").queue();
 			try {
-				System.err.println("start");
+//				System.err.println("start");
 				ProcessBuilder pb = new ProcessBuilder(servers.get(serverName).getRuncommand().split(" ")).inheritIO();
 				Process p = pb.start();
 			} catch (IOException e) {
@@ -266,7 +295,7 @@ public class Main extends ListenerAdapter {
 				e.printStackTrace();
 				return;
 			}
-			EmbedBuilder eb = new EmbedBuilder().setTitle("Started Server").appendDescription("Connect to `" + server.getIp() + "` to play on the server. ");
+			EmbedBuilder eb = new EmbedBuilder().setTitle("Starting Server").appendDescription("Connect to `" + server.getIp() + "` to play on the server. ");
 			eb.setFooter("Server id " + serverName);
 			event.getHook().sendMessageEmbeds(eb.build()).queue();
 		}
@@ -278,7 +307,7 @@ public class Main extends ListenerAdapter {
 			Server server = servers.get(serverName);
 			event.getHook().sendMessage("Stopping...").queue();
 			try {
-				System.err.println("stop");
+//				System.err.println("stop");
 				ProcessBuilder pb = new ProcessBuilder(servers.get(serverName).getStopcommand().split(" ")).inheritIO();
 				Process p = pb.start();
 			} catch (IOException e) {
