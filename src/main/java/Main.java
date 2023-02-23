@@ -126,7 +126,7 @@ public class Main extends ListenerAdapter {
 		OptionMapping om = event.getOption("server");
 		if(om != null) {
 			serverName = om.getAsString();
-			if(!aliases.containsKey(serverName)){
+			if(!aliases.containsKey(serverName) || !servers.containsKey(aliases.get(serverName))){
 				event.getHook().sendMessage("This server does not exist. Use `servers` to see a list of available servers. ").queue();
 				return;
 			}
@@ -245,6 +245,7 @@ public class Main extends ListenerAdapter {
 				Server serverToInsert = new Server(name, bigname, ip, runcommand, stopcommand);
 				serverList.insertOne(serverToInsert.toDocument()); //adds to the "mc" collection which stores server info
 				servers.put(name, serverToInsert);//add to hashmap
+				aliases.put(name, name);
 				manager.newCollection(name); //adds to the main database as a new server with logs
 				EmbedBuilder eb = new EmbedBuilder().setTitle("Added a new Server").appendDescription("Added a new server with name " + name + ", alternate name " + bigname + ", and IP " + ip + "\n").appendDescription("Server raw Document data: \n" + serverToInsert.toDocument().toString());
 				if(!servers.containsKey(defaultServer)){
@@ -265,6 +266,7 @@ public class Main extends ListenerAdapter {
 				}
 				serverList.findOneAndDelete(eq("name", name));
 				servers.remove(name);
+				//TODO remove from aliases as well
 				manager.removeCollection(name);
 				event.getHook().sendMessageEmbeds(new EmbedBuilder().setTitle("Removed a server").appendDescription("Removed a server with name " + name + " from the bot. ").build()).queue();
 			}
