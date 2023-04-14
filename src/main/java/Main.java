@@ -281,8 +281,7 @@ public class Main extends ListenerAdapter {
 			}
 			Server server = servers.get(serverName);
 			if(isOnline(serverName)){
-				EmbedBuilder eb = new EmbedBuilder().setTitle("Already Started")
-						.setDescription("The server is already on. Connect to " + server.getIp() + " to play on the server. ");
+				EmbedBuilder eb = new EmbedBuilder().setTitle("Already Started");
 				eb.setFooter("Server id " + serverName);
 				event.getHook().sendMessageEmbeds(eb.build()).queue();
 				return;
