@@ -286,7 +286,7 @@ public class Main extends ListenerAdapter {
 				event.getHook().sendMessageEmbeds(eb.build()).queue();
 				return;
 			}
-			event.getHook().sendMessage("Starting...").queue(); //
+			event.getHook().sendMessage("Starting...").queue();
 			try {
 //				System.err.println("start");
 				ProcessBuilder pb = new ProcessBuilder(servers.get(serverName).getRuncommand().split(" ")).inheritIO();
