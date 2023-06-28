@@ -141,8 +141,8 @@ public class Main extends ListenerAdapter {
 		}
 
 		if(event.getName().equals("help")){
-			EmbedBuilder eb = new EmbedBuilder().setTitle("Command List")
-					.addField("Slash Commands", "The bot recently migrated to slash commands. Message commands will no longer work. ", false)
+			EmbedBuilder eb = new EmbedBuilder().setTitle("Command List (Slash commands)")
+//					.addField("Slash Commands", "This bot recently migrated to slash commands. Message commands will no longer work. ", false)
 					.addField("Server Commands", "`uptime`: See the uptime of the server. \n"
 							 + "`joinlogs`: See the past 5 player join/leave logs. \n"
 							 + "`startlogs`: See the past 5 server start/stop logs. \n"
@@ -286,6 +286,13 @@ public class Main extends ListenerAdapter {
 				event.getHook().sendMessageEmbeds(eb.build()).queue();
 				return;
 			}
+			if(server.getRuncommand() == null) {
+				EmbedBuilder eb = new EmbedBuilder().setTitle("Error");
+				eb.appendDescription("This server does not have a run command set up. ");
+				eb.setFooter("Server id " + serverName);
+				event.getHook().sendMessageEmbeds(eb.build()).queue();
+				return;
+			}
 			event.getHook().sendMessage("Starting...").queue(); //
 			try {
 //				System.err.println("start");
@@ -306,6 +313,13 @@ public class Main extends ListenerAdapter {
 				return;
 			}
 			Server server = servers.get(serverName);
+			if(server.getStopcommand() == null) {
+				EmbedBuilder eb = new EmbedBuilder().setTitle("Error");
+				eb.appendDescription("This server does not have a stop command set up. ");
+				eb.setFooter("Server id " + serverName);
+				event.getHook().sendMessageEmbeds(eb.build()).queue();
+				return;
+			}
 			event.getHook().sendMessage("Stopping...").queue();
 			try {
 //				System.err.println("stop");
