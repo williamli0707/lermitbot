@@ -26,12 +26,13 @@ This mod is untested on Windows, but works on MacOS and Linux.
     -   The “name” field should be an alternate name, or more readable name for the server. (for example, Hypixel)
     -   The “ip” field is for the ip of the server, or what people use to connect to the server. (for example, [mc.hypixel.net](http://mc.hypixel.net/))
     -   The runcommand and stopcommand are optional. If you want a way to start the server from the bot, you should fill this out.
-    -   The run command is a one line command used to start the server. If you use ssh, use the -tt option. For example, if you use tmux to run your server and your Minecraft server is separate from your bot server, your run command could be:  
-      ``ssh -tt -i ~/.ssh/ssh-key.key user@192.168.0.0 tmux send-keys ~/path/to/script.sh Enter C-m```
-    -   You could probably have a simpler command than this. 
--   It is recommended to have a script file to start your server. In the script file, have the java command to run the server. Also, before the java command, add a line which moves to the folder in which the server is located. (cd ~/path/to/server)
+    -   The run command is a one line command used to start the server. For example, if you use tmux to run your server, your run command could be:  
+      ```tmux send-keys ~/path/to/script.sh Enter C-m```
+    -   You can also use ssh with your command if your bot is hosted on a different server. 
+    -   If you use screen the command will probably be something along the lines of `screen -S session -p 0 -X screen ~/path/to/script.sh`. 
+-   Instead of just calling `java -jar /path/to/server.jar`, which can cause issues due to not being in the right folder in the terminal session, make a script instead, which first navigates to the folder in which the server jar or script is located and then run that. 
 -   The stop command is similar. Once again, if you use tmux, a stop command could be:  
-    ```ssh -tt -i ~/.ssh/ssh-key.key user@192.168.0.0 tmux send-keys /stop Enter C-m```
+    ```tmux send-keys /stop Enter C-m```
 -   or you could have your own script on your bot server to stop the server, instead of having a really long command
 -   Once the server is added, you might need to restart the bot.
 -   Continue as needed with as many servers as you want.
@@ -58,7 +59,7 @@ This mod is untested on Windows, but works on MacOS and Linux.
 
 - The start/stop command
 - When you create a server, if you want to use the start/stop functionality, you need to provide the terminal command to start the server in one line. For example, if you use tmux and ssh to start the server, your start command might be:  
-    ```ssh -tt -i ~/.ssh/ssh-key.key user@ip tmux send-keys ~/path/to/start/script.sh Enter C-m```.
+    ```tmux send-keys ~/path/to/start/script.sh Enter C-m```.
     If you don’t have a .sh file that starts the server for you, it’s pretty simple to create one. Create a file called “run.sh” or something similar, and inside the file write:  
   
         #!/bin/sh
