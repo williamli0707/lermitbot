@@ -4,11 +4,11 @@ This **server side** mod uploads a log of online players to MongoDB every 10 sec
 
 This mod is untested on Windows, but works on MacOS and Linux.
 
-###You will need:
+### You will need:
 
 -   A server to host a Discord bot (can be the same as the server used to host the Minecraft server)
 
-###Setting up the bot and adding your first server:
+### Setting up the bot and adding your first server:
 
 -   Create a discord bot at the Discord Developer Portal.
 -   Follow the instructions under “Creating a Discord Bot” and “Add your Discord Bot to a Server” at [https://jda.wiki/using-jda/getting-started/](https://jda.wiki/using-jda/getting-started/).
@@ -36,7 +36,7 @@ This mod is untested on Windows, but works on MacOS and Linux.
 -   Once the server is added, you might need to restart the bot.
 -   Continue as needed with as many servers as you want.
 
-###Using the bot:
+### Using the bot:
 -   In the server, the bot takes care of everything automatically. However, when starting the server, make sure that it says “MongoDB Connection established.” This will confirm that the mod is working. If not, there should be an error. You should double check your connection string.
 -   In Discord, you can use these slash commands:
     -   uptime - find the uptime of the server
@@ -54,7 +54,7 @@ This mod is untested on Windows, but works on MacOS and Linux.
     -   start - start a server
     -   stop - stop a server
 
-###Some things to keep in mind:
+### Some things to keep in mind:
 
 - The start/stop command
 - When you create a server, if you want to use the start/stop functionality, you need to provide the terminal command to start the server in one line. For example, if you use tmux and ssh to start the server, your start command might be:  
